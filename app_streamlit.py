@@ -73,6 +73,10 @@ st.sidebar.header('⚙️ Settings')
 CURRENT_YEAR = st.sidebar.selectbox('Year', [2025, 2024, 2023, 2022], index=0)
 CURRENT_WEEK = st.sidebar.number_input('Week', min_value=1, max_value=18, value=1, step=1)
 
+# Initialize loading state to prevent concurrent loads
+if 'data_loading' not in st.session_state:
+    st.session_state.data_loading = False
+
 st.sidebar.header('🔧 Model Settings')
 show_standard_model = st.sidebar.checkbox('Show Standard Model', value=True, 
                                          help="Shows complex SOS-adjusted model")
@@ -410,17 +414,24 @@ with main_tab1:
                 return base_stats
         
             try:
-                # Get PBP data for analysis with comprehensive error handling
-                if 'pbp_data' not in st.session_state:
+                # Get PBP data for analysis with session state caching to prevent infinite loops
+                data_cache_key = f"main_pbp_data_{CURRENT_YEAR}"
+                
+                if data_cache_key not in st.session_state:
+                    # Only show spinner on first load
                     with st.spinner("Loading NFL data..."):
                         pbp_data = load_rolling_data(CURRENT_YEAR)
-                        if not pbp_data.empty:
-                            st.session_state.pbp_data = pbp_data
-                        else:
-                            st.error("❌ Unable to load NFL data. Please try refreshing the page or selecting a different year.")
-                            st.stop()
+                        
+                    if pbp_data.empty:
+                        st.error("❌ Unable to load NFL data. Please check data files.")
+                        st.stop()
+                    else:
+                        # Store in session state to prevent reloading
+                        st.session_state[data_cache_key] = pbp_data
+                        st.success(f"✅ Loaded {len(pbp_data)} NFL plays")
                 else:
-                    pbp_data = st.session_state.pbp_data
+                    # Use cached data
+                    pbp_data = st.session_state[data_cache_key]
             
                 col1, col2 = st.columns(2)
             
@@ -1160,19 +1171,24 @@ with main_tab2:
         return team_stats
     
     try:
-        # Get PBP data for rankings with session state caching
-        cache_key = f"rankings_data_{CURRENT_YEAR}_{CURRENT_WEEK}"
-        if cache_key not in st.session_state:
+        # Get PBP data for rankings with strict session state caching
+        rankings_cache_key = f"rankings_pbp_data_{CURRENT_YEAR}_{CURRENT_WEEK}"
+        
+        if rankings_cache_key not in st.session_state:
+            # Only load data once per session
             with st.spinner("Loading data for Power Rankings..."):
                 pbp_data = load_rolling_data(CURRENT_YEAR)
             
             if pbp_data.empty:
                 st.error("❌ Cannot load Power Rankings - no data available.")
                 st.stop()
-                
-            st.session_state[cache_key] = pbp_data
+            else:
+                # Cache the data to prevent reloading
+                st.session_state[rankings_cache_key] = pbp_data
+                st.success(f"✅ Power Rankings data loaded ({len(pbp_data)} plays)")
         else:
-            pbp_data = st.session_state[cache_key]
+            # Use cached data
+            pbp_data = st.session_state[rankings_cache_key]
             
         team_stats = get_all_team_stats(pbp_data, CURRENT_YEAR, CURRENT_WEEK, include_trends=show_season_trends)
         
