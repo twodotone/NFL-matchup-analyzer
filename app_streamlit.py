@@ -34,12 +34,16 @@ st.set_page_config(page_title="NFL Matchup Analyzer", layout="wide")
 st.title('🏈 NFL Matchup Analyzer - Production')
 
 # Check if we're in deployment environment
-IS_DEPLOYMENT = os.getenv('STREAMLIT_SHARING', 'false').lower() == 'true' or \
+IS_DEPLOYMENT = os.getenv('RAILWAY_ENVIRONMENT') is not None or \
+                os.getenv('STREAMLIT_SHARING', 'false').lower() == 'true' or \
                 'streamlit.app' in os.getenv('HOSTNAME', '') or \
                 os.getenv('STREAMLIT_CLOUD', 'false').lower() == 'true'
 
 if IS_DEPLOYMENT:
-    st.sidebar.info("🌟 Running on Streamlit Cloud")
+    if os.getenv('RAILWAY_ENVIRONMENT'):
+        st.sidebar.info("🚂 Running on Railway")
+    else:
+        st.sidebar.info("🌟 Running on Streamlit Cloud")
     # Reduce memory usage for deployment
     os.environ['PYTHONHASHSEED'] = '0'  # Make Python hash-stable
 
@@ -397,8 +401,14 @@ with main_tab1:
                 return base_stats
         
             try:
-                # Get PBP data for analysis
-                pbp_data = load_rolling_data(CURRENT_YEAR)
+                # Get PBP data for analysis with timeout protection
+                with st.spinner("Loading NFL data..."):
+                    pbp_data = load_rolling_data(CURRENT_YEAR)
+                
+                # Check if data loaded successfully
+                if pbp_data.empty:
+                    st.error("❌ Unable to load NFL data. Please try refreshing the page or selecting a different year.")
+                    st.stop()
             
                 col1, col2 = st.columns(2)
             
@@ -1138,8 +1148,14 @@ with main_tab2:
         return team_stats
     
     try:
-        # Get PBP data for rankings
-        pbp_data = load_rolling_data(CURRENT_YEAR)
+        # Get PBP data for rankings with error handling
+        with st.spinner("Loading data for Power Rankings..."):
+            pbp_data = load_rolling_data(CURRENT_YEAR)
+        
+        if pbp_data.empty:
+            st.error("❌ Cannot load Power Rankings - no data available.")
+            st.stop()
+            
         team_stats = get_all_team_stats(pbp_data, CURRENT_YEAR, CURRENT_WEEK, include_trends=show_season_trends)
         
         if not team_stats:

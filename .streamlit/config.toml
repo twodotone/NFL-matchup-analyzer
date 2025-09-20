@@ -1,15 +1,19 @@
 [server]
+headless = true
 fileWatcherType = "none"
 runOnSave = false
 allowRunOnSave = false
 maxUploadSize = 50
 maxMessageSize = 50
+enableCORS = false
+enableXsrfProtection = false
 
 [runner]
 fastReruns = false
 enforceSerializableSessionState = false
 installTracer = false
 fixMatplotlib = false
+magicEnabled = false
 
 [client]
 toolbarMode = "minimal"
