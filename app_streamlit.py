@@ -15,6 +15,7 @@ try:
     from streamlit_simple_model import StreamlitSimpleNFLModel
     from streamlit_real_standard_model import StreamlitRealStandardModel
     from data_loader import load_rolling_data
+    from player_impact_analyzer import PlayerImpactAnalyzer, get_mock_injury_report
 except Exception as e:
     st.error(f"❌ Critical import error: {e}")
     st.code(traceback.format_exc())
@@ -165,7 +166,7 @@ except Exception as e:
     st.stop()
 
 # --- Main App Tabs ---
-main_tab1, main_tab2 = st.tabs(["🏈 Game Analysis", "🏆 Power Rankings"])
+main_tab1, main_tab2, main_tab3 = st.tabs(["🏈 Game Analysis", "🏆 Power Rankings", "🚑 Injury Impact"])
 
 with main_tab1:
     # --- Main Page: Matchup Selection ---
@@ -1320,6 +1321,129 @@ with main_tab2:
     except Exception as e:
         st.error(f"Error loading power rankings: {str(e)}")
         st.caption("Please try refreshing or selecting a different week.")
+
+# ==========================================
+# INJURY IMPACT ANALYSIS TAB
+# ==========================================
+with main_tab3:
+    st.header("🚑 Injury Impact Analysis")
+    st.markdown("Analyze how key injuries affect team performance using individual player EPA impact scores.")
+    
+    # Team selection for injury analysis
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        teams_list = ['ARI', 'ATL', 'BAL', 'BUF', 'CAR', 'CHI', 'CIN', 'CLE', 'DAL', 'DEN', 
+                     'DET', 'GB', 'HOU', 'IND', 'JAX', 'KC', 'LV', 'LAC', 'LAR', 'MIA', 
+                     'MIN', 'NE', 'NO', 'NYG', 'NYJ', 'PHI', 'PIT', 'SF', 'SEA', 'TB', 'TEN', 'WAS']
+        selected_team_1 = st.selectbox("Select First Team", teams_list, key="injury_team_1")
+        
+    with col2:
+        selected_team_2 = st.selectbox("Select Second Team", teams_list, index=1, key="injury_team_2")
+    
+    if st.button("🔍 Analyze Player Impact"):
+        try:
+            # Get PBP data for injury analysis
+            injury_cache_key = f"injury_analysis_data_{CURRENT_YEAR}"
+            
+            if injury_cache_key not in st.session_state:
+                with st.spinner("Loading player impact data..."):
+                    pbp_data = load_rolling_data(CURRENT_YEAR)
+                
+                if pbp_data.empty:
+                    st.error("❌ Cannot load injury analysis - no data available.")
+                    st.stop()
+                else:
+                    st.session_state[injury_cache_key] = pbp_data
+                    st.success(f"✅ Player impact data loaded ({len(pbp_data)} plays)")
+            else:
+                pbp_data = st.session_state[injury_cache_key]
+            
+            # Initialize analyzer
+            analyzer = PlayerImpactAnalyzer(pbp_data)
+            
+            # Analysis for both teams
+            for team in [selected_team_1, selected_team_2]:
+                st.subheader(f"📊 {team} Player Impact Analysis")
+                
+                # Get mock injury report (replace with real API later)
+                injured_players = get_mock_injury_report(team)
+                
+                if injured_players:
+                    st.warning(f"🚑 Current Injuries: {', '.join(injured_players)}")
+                else:
+                    st.success("✅ No reported injuries")
+                
+                # Get and display player impact data
+                impact_df = analyzer.format_injury_impact_display(team, injured_players)
+                
+                if not impact_df.empty:
+                    st.dataframe(impact_df, width='stretch', hide_index=True)
+                    
+                    # Summary metrics
+                    total_injured_impact = sum(
+                        row['Impact Score'] for _, row in impact_df.iterrows() 
+                        if '🚑 INJURED' in row['Status']
+                    )
+                    
+                    healthy_impact = sum(
+                        row['Impact Score'] for _, row in impact_df.iterrows() 
+                        if '✅ Healthy' in row['Status']
+                    )
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Injured Player Impact", f"{total_injured_impact:.1f}")
+                    with col2:
+                        st.metric("Healthy Player Impact", f"{healthy_impact:.1f}")
+                    with col3:
+                        injury_effect = (total_injured_impact / (total_injured_impact + healthy_impact) * 100) if (total_injured_impact + healthy_impact) != 0 else 0
+                        st.metric("Injury Impact %", f"{injury_effect:.1f}%")
+                
+                else:
+                    st.info(f"No player data available for {team}")
+                
+                st.divider()
+            
+            # Impact Comparison
+            if selected_team_1 != selected_team_2:
+                st.subheader("⚖️ Team Injury Impact Comparison")
+                
+                team1_injuries = get_mock_injury_report(selected_team_1)
+                team2_injuries = get_mock_injury_report(selected_team_2)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric(f"{selected_team_1} Injured Players", len(team1_injuries))
+                with col2:
+                    st.metric(f"{selected_team_2} Injured Players", len(team2_injuries))
+                
+                if len(team1_injuries) > len(team2_injuries):
+                    st.warning(f"⚠️ {selected_team_1} may be more affected by injuries")
+                elif len(team2_injuries) > len(team1_injuries):
+                    st.warning(f"⚠️ {selected_team_2} may be more affected by injuries")
+                else:
+                    st.success("🟢 Both teams have similar injury impact levels")
+            
+        except Exception as e:
+            st.error(f"Error in injury analysis: {str(e)}")
+            st.caption("Please try refreshing or selecting different teams.")
+    
+    # Information about the analysis
+    with st.expander("ℹ️ How Player Impact Scores Work"):
+        st.markdown("""
+        **Impact Score Calculation:**
+        - **QBs**: (Pass EPA/play - Backup EPA) × Total dropbacks + Rush EPA contribution
+        - **Skill Players**: (Receiving EPA × Targets + Rushing EPA × Carries) × Usage factor
+        - **Defense**: Sacks × -2.0 + Interceptions × -2.5 + Tackles × -0.1
+        
+        **Key Metrics:**
+        - **EPA/Play**: Expected Points Added per play (higher = better for offense)
+        - **Usage**: Snap count, target share, carry share (higher = more important)
+        - **vs Backup**: Difference between starter and backup performance
+        
+        **Injury Impact**: Players with higher impact scores create bigger holes when injured.
+        """)
 
 # --- Footer ---
 st.divider()
