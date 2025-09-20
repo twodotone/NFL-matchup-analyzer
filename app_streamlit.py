@@ -5,10 +5,20 @@ import pandas as pd
 import os
 import sys
 import traceback
-from streamlit_data_loader import StreamlitDataLoader, check_data_freshness
-from streamlit_simple_model import StreamlitSimpleNFLModel
-from streamlit_real_standard_model import StreamlitRealStandardModel
-from data_loader import load_rolling_data
+
+# Set page config first
+st.set_page_config(page_title="NFL Matchup Analyzer", layout="wide")
+
+# Add comprehensive error handling for deployment
+try:
+    from streamlit_data_loader import StreamlitDataLoader, check_data_freshness
+    from streamlit_simple_model import StreamlitSimpleNFLModel
+    from streamlit_real_standard_model import StreamlitRealStandardModel
+    from data_loader import load_rolling_data
+except Exception as e:
+    st.error(f"❌ Critical import error: {e}")
+    st.code(traceback.format_exc())
+    st.stop()
 from stats_calculator import (
     get_last_n_games_pbp,
     calculate_granular_epa_stats,
@@ -30,7 +40,6 @@ def handle_deployment_error(error, context=""):
     return None
 
 # --- Page & Sidebar Configuration ---
-st.set_page_config(page_title="NFL Matchup Analyzer", layout="wide")
 st.title('🏈 NFL Matchup Analyzer - Production')
 
 # Check if we're in deployment environment

@@ -11,13 +11,10 @@ enableXsrfProtection = false
 [runner]
 fastReruns = false
 enforceSerializableSessionState = false
-installTracer = false
-fixMatplotlib = false
-magicEnabled = false
 
 [client]
 toolbarMode = "minimal"
-showErrorDetails = false
+showErrorDetails = true
 
 [theme]
 base = "dark"
