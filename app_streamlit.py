@@ -46,15 +46,23 @@ st.title('🏈 NFL Matchup Analyzer - Production')
 IS_DEPLOYMENT = os.getenv('RAILWAY_ENVIRONMENT') is not None or \
                 os.getenv('STREAMLIT_SHARING', 'false').lower() == 'true' or \
                 'streamlit.app' in os.getenv('HOSTNAME', '') or \
-                os.getenv('STREAMLIT_CLOUD', 'false').lower() == 'true'
+                os.getenv('STREAMLIT_CLOUD', 'false').lower() == 'true' or \
+                os.getenv('PORT') is not None  # Railway sets PORT
 
 if IS_DEPLOYMENT:
     if os.getenv('RAILWAY_ENVIRONMENT'):
         st.sidebar.info("🚂 Running on Railway")
     else:
-        st.sidebar.info("🌟 Running on Streamlit Cloud")
-    # Reduce memory usage for deployment
+        st.sidebar.info("🌟 Running on Cloud Platform")
+    # Deployment optimizations
     os.environ['PYTHONHASHSEED'] = '0'  # Make Python hash-stable
+    
+    # For Railway specifically, add some debugging
+    if os.getenv('RAILWAY_ENVIRONMENT'):
+        st.sidebar.caption(f"Working Dir: {os.getcwd()}")
+        st.sidebar.caption(f"Data Dir Exists: {os.path.exists('data')}")
+else:
+    st.sidebar.info("💻 Running Locally")
 
 # --- Data Freshness Check ---
 with st.sidebar:
@@ -1252,7 +1260,7 @@ with main_tab2:
                 # Display as dataframe for compact view
                 if table_data:
                     df = pd.DataFrame(table_data)
-                    st.dataframe(df, use_container_width=True, hide_index=True, height=min(400, len(table_data) * 35 + 38))
+                    st.dataframe(df, width='stretch', hide_index=True, height=min(400, len(table_data) * 35 + 38))
                 else:
                     st.info("No team data available")
             
