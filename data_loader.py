@@ -2,12 +2,25 @@ import streamlit as st
 import pandas as pd
 import os
 
-@st.cache_data(ttl=300, show_spinner="Loading NFL data...")  # 5 minute cache
+# Global variable to cache data and prevent reloading
+_cached_data = {}
+_cache_timestamp = {}
+
 def load_rolling_data(current_year):
     """
     Loads play-by-play data for the given year and up to 3 previous years,
     then combines them into a single DataFrame.
     """
+    cache_key = f"rolling_data_{current_year}"
+    
+    # Check if we have cached data that's still fresh (5 minutes)
+    import time
+    current_time = time.time()
+    if (cache_key in _cached_data and 
+        cache_key in _cache_timestamp and 
+        current_time - _cache_timestamp[cache_key] < 300):  # 5 minutes
+        return _cached_data[cache_key]
+    
     try:
         pbp_dfs = []
         years_loaded = []
@@ -47,7 +60,11 @@ def load_rolling_data(current_year):
         if combined_df.empty:
             st.error("❌ Combined data is empty")
             return pd.DataFrame()
-            
+        
+        # Cache the result
+        _cached_data[cache_key] = combined_df
+        _cache_timestamp[cache_key] = current_time
+        
         st.success(f"✅ Loaded data for years: {years_loaded}")
         return combined_df
         
@@ -55,11 +72,20 @@ def load_rolling_data(current_year):
         st.error(f"❌ Critical error in data loading: {e}")
         return pd.DataFrame()
 
-@st.cache_data(ttl=300, show_spinner="Loading season data...")
 def load_full_season_pbp(year):
     """
     Loads the full play-by-play dataset for a given year from a local parquet file.
     """
+    cache_key = f"season_data_{year}"
+    
+    # Check cache
+    import time
+    current_time = time.time()
+    if (cache_key in _cached_data and 
+        cache_key in _cache_timestamp and 
+        current_time - _cache_timestamp[cache_key] < 300):
+        return _cached_data[cache_key]
+    
     file_path = os.path.join("data", f"pbp_{year}.parquet")
     
     try:
@@ -68,6 +94,11 @@ def load_full_season_pbp(year):
             return pd.DataFrame()
             
         pbp_df = pd.read_parquet(file_path)
+        
+        # Cache the result
+        _cached_data[cache_key] = pbp_df
+        _cache_timestamp[cache_key] = current_time
+        
         return pbp_df
     except Exception as e:
         st.error(f"Failed to load data for {year}: {e}")

@@ -401,14 +401,17 @@ with main_tab1:
                 return base_stats
         
             try:
-                # Get PBP data for analysis with timeout protection
-                with st.spinner("Loading NFL data..."):
-                    pbp_data = load_rolling_data(CURRENT_YEAR)
-                
-                # Check if data loaded successfully
-                if pbp_data.empty:
-                    st.error("❌ Unable to load NFL data. Please try refreshing the page or selecting a different year.")
-                    st.stop()
+                # Get PBP data for analysis with comprehensive error handling
+                if 'pbp_data' not in st.session_state:
+                    with st.spinner("Loading NFL data..."):
+                        pbp_data = load_rolling_data(CURRENT_YEAR)
+                        if not pbp_data.empty:
+                            st.session_state.pbp_data = pbp_data
+                        else:
+                            st.error("❌ Unable to load NFL data. Please try refreshing the page or selecting a different year.")
+                            st.stop()
+                else:
+                    pbp_data = st.session_state.pbp_data
             
                 col1, col2 = st.columns(2)
             
@@ -1148,13 +1151,19 @@ with main_tab2:
         return team_stats
     
     try:
-        # Get PBP data for rankings with error handling
-        with st.spinner("Loading data for Power Rankings..."):
-            pbp_data = load_rolling_data(CURRENT_YEAR)
-        
-        if pbp_data.empty:
-            st.error("❌ Cannot load Power Rankings - no data available.")
-            st.stop()
+        # Get PBP data for rankings with session state caching
+        cache_key = f"rankings_data_{CURRENT_YEAR}_{CURRENT_WEEK}"
+        if cache_key not in st.session_state:
+            with st.spinner("Loading data for Power Rankings..."):
+                pbp_data = load_rolling_data(CURRENT_YEAR)
+            
+            if pbp_data.empty:
+                st.error("❌ Cannot load Power Rankings - no data available.")
+                st.stop()
+                
+            st.session_state[cache_key] = pbp_data
+        else:
+            pbp_data = st.session_state[cache_key]
             
         team_stats = get_all_team_stats(pbp_data, CURRENT_YEAR, CURRENT_WEEK, include_trends=show_season_trends)
         
