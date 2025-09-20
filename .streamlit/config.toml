@@ -1,0 +1,27 @@
+[server]
+fileWatcherType = "none"
+runOnSave = false
+allowRunOnSave = false
+maxUploadSize = 50
+maxMessageSize = 50
+
+[runner]
+fastReruns = false
+enforceSerializableSessionState = false
+installTracer = false
+fixMatplotlib = false
+
+[client]
+toolbarMode = "minimal"
+showErrorDetails = false
+
+[theme]
+base = "dark"
+
+[global]
+developmentMode = false
+suppressDeprecationWarnings = true
+showWarningOnDirectExecution = false
+
+[browser]
+gatherUsageStats = false

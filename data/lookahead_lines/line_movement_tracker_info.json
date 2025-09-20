@@ -1,0 +1,11 @@
+{
+  "setup_date": "2025-09-18 21:36:32.679534+00:00",
+  "purpose": "Track NFL betting line movement from early posting to game time",
+  "data_structure": {
+    "early_lines": "Lines captured when first posted (Tuesday/Wednesday)",
+    "mid_week_lines": "Lines captured mid-week (Thursday/Friday)",
+    "closing_lines": "Final lines before game time",
+    "capture_metadata": "Timestamp, source, line_type for each capture"
+  },
+  "usage": "Compare early vs closing to identify line movement patterns"
+}
